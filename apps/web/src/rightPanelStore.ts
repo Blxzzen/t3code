@@ -209,7 +209,7 @@ const EMPTY_THREAD_STATE: ThreadRightPanelState = {
 };
 
 const DEFAULT_THREAD_PANEL_VISIBILITY: ThreadPanelVisibility = {
-  inlineOpen: true,
+  inlineOpen: false,
   popoverOpen: false,
 };
 
@@ -340,7 +340,7 @@ const updateThreadPanelVisibilityMap = (
 ): Record<string, ThreadPanelVisibility> => {
   const current = byThreadKey[threadKey] ?? DEFAULT_THREAD_PANEL_VISIBILITY;
   const next = updater(current);
-  if (next.inlineOpen && !next.popoverOpen) {
+  if (!next.inlineOpen && !next.popoverOpen) {
     if (!(threadKey in byThreadKey)) return byThreadKey;
     const { [threadKey]: _removed, ...rest } = byThreadKey;
     return rest;
@@ -374,15 +374,6 @@ const updateThread = (
       threadPanelVisibilityByThreadKey,
       threadKey,
       (visibility) => (visibility.popoverOpen ? { ...visibility, popoverOpen: false } : visibility),
-    );
-  } else if (current.isOpen && !next.isOpen) {
-    threadPanelVisibilityByThreadKey = updateThreadPanelVisibilityMap(
-      threadPanelVisibilityByThreadKey,
-      threadKey,
-      (visibility) =>
-        visibility.popoverOpen && !visibility.inlineOpen
-          ? { ...visibility, inlineOpen: true }
-          : visibility,
     );
   }
 
