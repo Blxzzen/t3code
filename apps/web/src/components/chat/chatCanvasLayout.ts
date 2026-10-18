@@ -13,6 +13,7 @@ import type {
 export interface ChatCanvasPreview {
   readonly key: string;
   readonly width: number | null;
+  readonly height?: number | null;
   readonly position: PreviewMiniPlayerPosition | null;
   readonly source: PreviewMiniPlayerSize;
   readonly lastInteraction?: PreviewMiniPlayerState["lastInteraction"];
@@ -64,6 +65,21 @@ export function resolveChatCanvasLayout({
   };
   let frame: PreviewMiniPlayerFrame | null = null;
   let overlapsChat = false;
+  // Browser previews float freely over the existing conversation and composer.
+  if (preview?.key.startsWith("browser:")) {
+    frame =
+      container.width > 0 && container.height > 0
+        ? resolvePreviewMiniPlayerFrame({ ...preview, container })
+        : null;
+    return {
+      chat,
+      frame,
+      overlapsChat: Boolean(
+        frame && frame.x < chat.left + chat.width && frame.x + frame.width > chat.left,
+      ),
+      overlapsDetailsCard: false,
+    };
+  }
   if (preview && container.width > 0 && container.height > 0) {
     frame = resolvePreviewMiniPlayerFrame({ ...preview, container });
     // Reserve a readable chat lane only while it leaves room to drag. Otherwise

@@ -7,7 +7,7 @@ import {
 } from "./threadDetailsCardLayout";
 
 const preview: ChatCanvasPreview = {
-  key: "browser:one",
+  key: "device:one",
   width: 320,
   position: null,
   source: { width: 1600, height: 1000 },
@@ -22,7 +22,65 @@ const expectClear = (result: ReturnType<typeof resolve>) => {
   );
 };
 
-describe("chat canvas layout", () => {
+describe("floating browser preview", () => {
+  const browser = { ...preview, key: "browser:one" };
+
+  it("opens in the top-right corner without moving the centered chat", () => {
+    const result = resolve(1344, { ...browser, width: null });
+    expect(result.frame).toEqual({ x: 1012, y: 12, width: 320, height: 200 });
+    expect(result.chat).toEqual(resolve(1344, null).chat);
+  });
+
+  it.each([390, 900, 1344, 1800])(
+    "keeps chat stationary while a browser moves or resizes on a %spx canvas",
+    (width) => {
+      const chat = resolve(width, null).chat;
+      for (const lastInteraction of ["drag", "resize"] as const) {
+        for (const x of [12, 200, 700]) {
+          for (const size of [
+            { width: 320, height: 200 },
+            { width: 700, height: 550 },
+          ]) {
+            expect(
+              resolve(width, { ...browser, ...size, position: { x, y: 500 }, lastInteraction })
+                .chat,
+            ).toEqual(chat);
+          }
+        }
+      }
+    },
+  );
+
+  it("allows placing the browser over the composer", () => {
+    const result = resolve(1344, { ...browser, height: 200, position: { x: 400, y: 688 } });
+    expect(result.frame).toEqual({ x: 400, y: 688, width: 320, height: 200 });
+    expect(result.overlapsChat).toBe(true);
+  });
+
+  it("does not fold the details card or change chat when resizing over it", () => {
+    const input = {
+      container: { width: 1600, height: 900 },
+      detailsCard: { left: 1308, right: 1588, bottom: 400 },
+      findBar: { left: 1308, right: 1588, bottom: 48 },
+      composerHeight: 180,
+    };
+    const result = resolveChatCanvasLayout({
+      ...input,
+      preview: {
+        ...browser,
+        width: 900,
+        height: 600,
+        position: { x: 688, y: 12 },
+        lastInteraction: "resize",
+      },
+    });
+    expect(result.chat).toEqual(resolveChatCanvasLayout({ ...input, preview: null }).chat);
+    expect(result.frame).toEqual({ x: 688, y: 12, width: 900, height: 600 });
+    expect(result.overlapsDetailsCard).toBe(false);
+  });
+});
+
+describe("chat canvas layout with device previews", () => {
   it("lifts a growing preview above the composer without snapping at the chat boundary", () => {
     let previous: ReturnType<typeof resolve> | undefined;
     for (let width = 480; width <= 1100; width++) {

@@ -170,6 +170,23 @@ function defaultPreviewMiniPlayerWidth(source: PreviewMiniPlayerSize): number {
   );
 }
 
+function fitPreviewMiniPlayerSize(
+  desired: PreviewMiniPlayerSize,
+  max: PreviewMiniPlayerSize,
+): PreviewMiniPlayerSize {
+  return {
+    width: Math.round(
+      Math.min(Math.max(desired.width, PREVIEW_MINI_PLAYER_MIN_SIZE.width), Math.max(1, max.width)),
+    ),
+    height: Math.round(
+      Math.min(
+        Math.max(desired.height, PREVIEW_MINI_PLAYER_MIN_SIZE.height),
+        Math.max(1, max.height),
+      ),
+    ),
+  };
+}
+
 const clampToContainer = (
   position: PreviewMiniPlayerPosition,
   container: PreviewMiniPlayerSize,
@@ -279,6 +296,7 @@ export function clampPreviewMiniPlayerPosition(
  */
 export function resolvePreviewMiniPlayerFrame(input: {
   readonly width: number | null;
+  readonly height?: number | null;
   readonly position: PreviewMiniPlayerPosition | null;
   readonly source: PreviewMiniPlayerSize;
   readonly container: PreviewMiniPlayerSize;
@@ -286,23 +304,25 @@ export function resolvePreviewMiniPlayerFrame(input: {
 }): PreviewMiniPlayerFrame {
   const {
     width,
+    height,
     position,
     source,
     container,
     obstacles = NO_PREVIEW_MINI_PLAYER_OBSTACLES,
   } = input;
-  const size = fitPreviewMiniPlayerWidth(
-    width ?? defaultPreviewMiniPlayerWidth(source),
-    source,
-    availableArea(
-      container,
-      // A stored player keeps its size under the details card — the card's
-      // ceiling is a placement concern, not a sizing one, and the clamp pass
-      // relocates the frame into columns the card leaves open.
-      position && width ? { composer: obstacles.composer, detailsCard: null } : obstacles,
-      position && width ? spanOf(position.x, width) : null,
-    ),
+  const max = availableArea(
+    container,
+    // A stored player keeps its size under the details card — the card's
+    // ceiling is a placement concern, not a sizing one, and the clamp pass
+    // relocates the frame into columns the card leaves open.
+    position && width ? { composer: obstacles.composer, detailsCard: null } : obstacles,
+    position && width ? spanOf(position.x, width) : null,
   );
+  const desiredWidth = width ?? defaultPreviewMiniPlayerWidth(source);
+  const size =
+    height == null
+      ? fitPreviewMiniPlayerWidth(desiredWidth, source, max)
+      : fitPreviewMiniPlayerSize({ width: desiredWidth, height }, max);
   const { detailsCard } = obstacles;
   const anchored =
     position ??
@@ -316,7 +336,7 @@ export function resolvePreviewMiniPlayerFrame(input: {
 }
 
 /**
- * Resizes from any edge or corner while holding the aspect ratio. The edge
+ * Resizes from any edge or corner, optionally holding the aspect ratio. The edge
  * opposite the dragged one stays anchored, so growth stops at the container
  * on that axis and the pointer keeps tracking the grabbed edge. On a plain edge
  * drag the perpendicular axis may use the whole container, and the player
@@ -329,6 +349,7 @@ export function resizePreviewMiniPlayer(input: {
   readonly source: PreviewMiniPlayerSize;
   readonly container: PreviewMiniPlayerSize;
   readonly obstacles?: PreviewMiniPlayerObstacles;
+  readonly lockAspectRatio?: boolean;
 }): PreviewMiniPlayerFrame {
   const {
     start,
@@ -337,6 +358,7 @@ export function resizePreviewMiniPlayer(input: {
     source,
     container,
     obstacles = NO_PREVIEW_MINI_PLAYER_OBSTACLES,
+    lockAspectRatio = true,
   } = input;
   const east = direction.includes("east");
   const west = direction.includes("west");
@@ -375,7 +397,9 @@ export function resizePreviewMiniPlayer(input: {
       : horizontal
         ? desiredWidth
         : desiredHeight * aspectRatio;
-  const size = fitPreviewMiniPlayerWidth(desired, source, max);
+  const size = lockAspectRatio
+    ? fitPreviewMiniPlayerWidth(desired, source, max)
+    : fitPreviewMiniPlayerSize({ width: desiredWidth, height: desiredHeight }, max);
   const position = clampPreviewMiniPlayerPosition(
     { x: west ? right - size.width : start.x, y: north ? bottom - size.height : start.y },
     container,

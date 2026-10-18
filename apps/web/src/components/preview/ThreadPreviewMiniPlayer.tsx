@@ -1,7 +1,7 @@
 "use client";
 
 import { FILL_PREVIEW_VIEWPORT, type ScopedThreadRef } from "@t3tools/contracts";
-import { PanelRightIcon, PictureInPicture2, XIcon } from "lucide-react";
+import { GripHorizontalIcon, PanelRightIcon, PictureInPicture2, XIcon } from "lucide-react";
 import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
@@ -238,7 +238,6 @@ function BrowserMiniPlayer({ threadRef, tabId, miniPlayer }: Props & { readonly 
               visible={Boolean(desktopOverlay?.hasWebContents)}
               cornerRadius={PREVIEW_MINI_PLAYER_CORNER_RADIUS}
               zIndex={PREVIEW_MINI_PLAYER_WEBVIEW_Z_INDEX}
-              fitSourceContent
               layoutVersion={`${frame.x}:${frame.y}`}
               className="absolute inset-0"
             />
@@ -341,6 +340,7 @@ function MiniPlayerShell({
   readonly children: (frame: PreviewMiniPlayerFrame) => ReactNode;
 }) {
   const canvas = useChatCanvas();
+  const browser = miniPlayer.source.kind === "browser";
   const gestureRef = useRef<PointerGesture | null>(null);
   // Touch has no hover, so tapping the handle toggles the pill instead. The
   // toggle waits for the tap's click, which would otherwise land on the pill.
@@ -368,6 +368,7 @@ function MiniPlayerShell({
     reportPreview?.({
       key: sourceKey,
       width: miniPlayer.width,
+      height: miniPlayer.height,
       position: miniPlayer.position,
       lastInteraction: miniPlayer.lastInteraction,
       source: { width: sourceWidth, height: sourceHeight },
@@ -376,6 +377,7 @@ function MiniPlayerShell({
     reportPreview,
     sourceKey,
     miniPlayer.width,
+    miniPlayer.height,
     miniPlayer.position,
     miniPlayer.lastInteraction,
     sourceWidth,
@@ -434,11 +436,18 @@ function MiniPlayerShell({
       start: gesture.frame,
       direction: gesture.direction,
       delta,
-      source: sourceSize,
+      source: browser ? gesture.frame : sourceSize,
       container,
       obstacles,
+      lockAspectRatio: !browser || event.shiftKey,
     });
-    store.resize(threadRef, sourceKey, next.width, { x: next.x, y: next.y });
+    store.resize(
+      threadRef,
+      sourceKey,
+      next.width,
+      { x: next.x, y: next.y },
+      browser ? next.height : undefined,
+    );
   };
 
   const endGesture = (event: ReactPointerEvent<HTMLElement>) => {
@@ -472,19 +481,32 @@ function MiniPlayerShell({
         >
           <div
             ref={handleRef}
+            data-preview-mini-player-drag
             data-pill-open={pillOpen ? "" : undefined}
-            className="group pointer-events-auto absolute z-[49] size-3 touch-none cursor-grab active:cursor-grabbing pointer-coarse:-m-2.5 pointer-coarse:size-8"
-            style={{ right: pillInset, top: pillInset }}
+            className={cn(
+              "group pointer-events-auto absolute z-[49] touch-none cursor-grab active:cursor-grabbing",
+              browser
+                ? "inset-x-2 top-1 h-7 rounded-md hover:bg-popover/90"
+                : "size-3 pointer-coarse:-m-2.5 pointer-coarse:size-8",
+            )}
+            style={browser ? undefined : { right: pillInset, top: pillInset }}
             onPointerDown={(event) => beginGesture(event, null)}
             onPointerMove={handlePointerMove}
             onPointerUp={endGesture}
             onPointerCancel={endGesture}
+            onLostPointerCapture={endGesture}
             onClick={() => {
               if (!handleTappedRef.current) return;
               handleTappedRef.current = false;
               setPillOpen((open) => !open);
             }}
           >
+            {browser ? (
+              <GripHorizontalIcon
+                aria-hidden
+                className="pointer-events-none absolute left-1/2 top-1 -translate-x-1/2 size-4 rounded bg-popover/90 text-muted-foreground"
+              />
+            ) : null}
             <div
               role={recording ? "status" : undefined}
               aria-label={recording ? "Recording preview" : undefined}
@@ -555,6 +577,7 @@ function MiniPlayerShell({
               onPointerMove={handlePointerMove}
               onPointerUp={endGesture}
               onPointerCancel={endGesture}
+              onLostPointerCapture={endGesture}
             />
           ))}
         </section>

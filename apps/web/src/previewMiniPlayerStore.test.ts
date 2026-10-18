@@ -50,6 +50,7 @@ describe("previewMiniPlayerStore", () => {
       source: tabB,
       position: { x: 24, y: 48 },
       width: null,
+      height: null,
       lastInteraction: "drag",
     });
   });
@@ -65,6 +66,7 @@ describe("previewMiniPlayerStore", () => {
       source: tabB,
       position: null,
       width: null,
+      height: null,
       lastInteraction: "drag",
     });
   });
@@ -77,6 +79,30 @@ describe("previewMiniPlayerStore", () => {
     expect(
       selectThreadPreviewMiniPlayer(usePreviewMiniPlayerStore.getState().byThreadKey, refA),
     ).toMatchObject({ source: tabB, width: 480 });
+  });
+
+  it("retains independent browser dimensions across dragging and tab changes", () => {
+    const store = usePreviewMiniPlayerStore.getState();
+    store.open(refA, tabA);
+    store.resize(refA, "browser:tab-a", 480, { x: 100, y: 80 }, 500);
+    store.resize(refA, "browser:tab-a", 480, { x: 100, y: 80 }, 550);
+    store.move(refA, "browser:tab-a", { x: 200, y: 150 });
+    store.open(refA, tabB);
+    expect(
+      selectThreadPreviewMiniPlayer(usePreviewMiniPlayerStore.getState().byThreadKey, refA),
+    ).toMatchObject({
+      width: 480,
+      height: 550,
+      position: { x: 200, y: 150 },
+    });
+    store.resize(refA, "browser:tab-a", 800, { x: 12, y: 12 }, 200);
+    expect(
+      selectThreadPreviewMiniPlayer(usePreviewMiniPlayerStore.getState().byThreadKey, refA)?.height,
+    ).toBe(550);
+    store.open(refA, pixel);
+    expect(
+      selectThreadPreviewMiniPlayer(usePreviewMiniPlayerStore.getState().byThreadKey, refA)?.height,
+    ).toBeNull();
   });
 
   it("keeps a resize placement after release and clears it when dragging", () => {

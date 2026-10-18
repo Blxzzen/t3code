@@ -26,8 +26,9 @@ export type PreviewMiniPlayerSource =
 export interface PreviewMiniPlayerState {
   readonly source: PreviewMiniPlayerSource;
   readonly position: PreviewMiniPlayerPosition | null;
-  /** Height always follows the mirrored source's aspect ratio. */
   readonly width: number | null;
+  /** Browser previews retain both dimensions; device streams follow their source ratio. */
+  readonly height: number | null;
   readonly lastInteraction: "drag" | "resize";
 }
 
@@ -46,6 +47,7 @@ interface PreviewMiniPlayerStoreState {
     sourceKey: string,
     width: number,
     position?: PreviewMiniPlayerPosition,
+    height?: number,
   ) => void;
   readonly removeThread: (ref: ScopedThreadRef) => void;
 }
@@ -80,6 +82,10 @@ export const usePreviewMiniPlayerStore = create<PreviewMiniPlayerStoreState>()((
             source,
             position: current?.position ?? null,
             width: current?.width ?? null,
+            height:
+              source.kind === "browser" && current?.source.kind === "browser"
+                ? current.height
+                : null,
             lastInteraction: current?.lastInteraction ?? "drag",
           },
         },
@@ -110,7 +116,7 @@ export const usePreviewMiniPlayerStore = create<PreviewMiniPlayerStoreState>()((
         },
       };
     }),
-  resize: (ref, sourceKey, width, position) =>
+  resize: (ref, sourceKey, width, position, height) =>
     set((state) => {
       const threadKey = scopedThreadKey(ref);
       const current = state.byThreadKey[threadKey];
@@ -118,6 +124,7 @@ export const usePreviewMiniPlayerStore = create<PreviewMiniPlayerStoreState>()((
         !current ||
         previewMiniPlayerSourceKey(current.source) !== sourceKey ||
         (current.width === width &&
+          (height === undefined || current.height === height) &&
           current.lastInteraction === "resize" &&
           (!position || (current.position?.x === position.x && current.position.y === position.y)))
       ) {
@@ -129,6 +136,7 @@ export const usePreviewMiniPlayerStore = create<PreviewMiniPlayerStoreState>()((
           [threadKey]: {
             ...current,
             width,
+            height: height ?? current.height,
             position: position ?? current.position,
             lastInteraction: "resize",
           },

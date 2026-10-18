@@ -162,6 +162,64 @@ describe("resolvePreviewMiniPlayerFrame", () => {
 describe("resizePreviewMiniPlayer", () => {
   const start = { x: 300, y: 200, width: 320, height: 200 };
 
+  it.each([
+    ["north", { x: 300, y: 230, width: 320, height: 170 }],
+    ["northeast", { x: 300, y: 230, width: 360, height: 170 }],
+    ["east", { x: 300, y: 200, width: 360, height: 200 }],
+    ["southeast", { x: 300, y: 200, width: 360, height: 230 }],
+    ["south", { x: 300, y: 200, width: 320, height: 230 }],
+    ["southwest", { x: 340, y: 200, width: 280, height: 230 }],
+    ["west", { x: 340, y: 200, width: 280, height: 200 }],
+    ["northwest", { x: 340, y: 230, width: 280, height: 170 }],
+  ] as const)(
+    "resizes freely from the %s handle while anchoring opposite edges",
+    (direction, expected) => {
+      const frame = resizePreviewMiniPlayer({
+        start,
+        direction,
+        delta: { x: 40, y: 30 },
+        source,
+        container,
+        lockAspectRatio: false,
+      });
+      expect(frame).toEqual(expected);
+      expect(
+        resolvePreviewMiniPlayerFrame({
+          width: frame.width,
+          height: frame.height,
+          position: frame,
+          source,
+          container,
+        }),
+      ).toEqual(frame);
+    },
+  );
+
+  it("locks the current window ratio after a free resize", () => {
+    const frame = resizePreviewMiniPlayer({
+      start: { ...start, width: 400 },
+      direction: "east",
+      delta: { x: 80, y: 0 },
+      source: { width: 400, height: 200 },
+      container,
+      lockAspectRatio: true,
+    });
+    expect(frame).toEqual({ x: 300, y: 200, width: 480, height: 240 });
+  });
+
+  it("clamps independent dimensions to the canvas and minimum size", () => {
+    expect(
+      resizePreviewMiniPlayer({
+        start,
+        direction: "southeast",
+        delta: { x: 2000, y: -2000 },
+        source,
+        container,
+        lockAspectRatio: false,
+      }),
+    ).toEqual({ x: 300, y: 200, width: 688, height: 150 });
+  });
+
   it("keeps the aspect ratio when dragging the right edge", () => {
     expect(
       resizePreviewMiniPlayer({

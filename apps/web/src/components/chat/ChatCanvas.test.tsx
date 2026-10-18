@@ -27,7 +27,7 @@ function Preview({ x }: { x: number }) {
   const reportPreview = current?.reportPreview;
   useLayoutEffect(() => {
     reportPreview?.({
-      key: "browser:one",
+      key: "device:one",
       width: 240,
       source: { width: 240, height: 365 },
       position: { x, y: 12 },
