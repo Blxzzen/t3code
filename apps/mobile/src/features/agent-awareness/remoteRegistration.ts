@@ -36,6 +36,8 @@ import {
   saveAgentAwarenessRegistrationRecord,
 } from "../../persistence/imperative";
 import type { AgentActivityProps } from "../../widgets/AgentActivity";
+import type { AgentActivityWidgetSource } from "../../widgets/agentActivityWidgetTimeline";
+import { publishAgentActivityWidget } from "../../widgets/publishAgentActivityWidget";
 import { getAgentLiveActivities, startAgentLiveActivity } from "./agentLiveActivity";
 import { resolveCloudPublicConfig } from "../cloud/publicConfig";
 import { supportsAgentAwarenessPush } from "./capabilities";
@@ -83,6 +85,9 @@ const ACTIVITY_TOKEN_REREGISTER_INTERVAL_MS = 60_000;
 const LIVE_ACTIVITY_STALE_AFTER_MS = 10 * 60_000;
 const liveActivityStaleDate = () => new Date(Date.now() + LIVE_ACTIVITY_STALE_AFTER_MS);
 const registeredActivityPushTokens = new Map<string, number>();
+// A failed read keeps the current account's last rows, but must not leave the
+// widget claiming the user is signed out or showing a previous account.
+let widgetShowsCurrentAccount = false;
 let androidDeviceReplayedAt: number | null = null;
 let pushTokenSubscription: { remove: () => void } | null = null;
 let appStateSubscription: { remove: () => void } | null = null;
@@ -182,6 +187,7 @@ export function setAgentAwarenessRelayTokenProvider(
     activeDeviceRegistration = null;
     pendingDeviceRegistration = null;
     registeredActivityPushTokens.clear();
+    widgetShowsCurrentAccount = false;
   }
   relayTokenProvider = provider;
   relayTokenProviderIdentity = provider ? (identity ?? null) : null;
@@ -198,6 +204,7 @@ export function setAgentAwarenessRelayTokenProvider(
     // Without a signed-in user the relay can no longer update or end these
     // activities, so they would sit orphaned on the lock screen.
     endLocalLiveActivities("live activity cleanup after cloud sign-out failed");
+    publishWidget({ kind: "signed-out" });
     setRegistrationStatus("unknown");
     void clearAgentAwarenessRegistrationRecord().catch((error: unknown) => {
       logRegistrationError("clear registration record on sign-out failed", error);
@@ -804,6 +811,15 @@ function ensureAppStateListener(): void {
   });
 }
 
+function publishWidget(source: AgentActivityWidgetSource): void {
+  if (!canRegisterRemoteLiveActivities()) {
+    return;
+  }
+  publishAgentActivityWidget(source).catch((error: unknown) => {
+    logRegistrationError("agent activity widget publish failed", error);
+  });
+}
+
 function endLocalLiveActivities(context: string): void {
   if (!canRegisterRemoteLiveActivities()) {
     return;
@@ -893,6 +909,7 @@ export function __resetAgentAwarenessRemoteRegistrationForTest(): void {
   androidDeviceReplayedAt = null;
   registrationStatusListeners.clear();
   registeredActivityPushTokens.clear();
+  widgetShowsCurrentAccount = false;
 }
 
 export function unregisterAgentAwarenessDeviceForCurrentUser(
@@ -1033,6 +1050,20 @@ export function refreshActiveLiveActivityRemoteRegistration(): Effect.Effect<
       return;
     }
 
+    // The home-screen widget has no push path of its own, so every foreground
+    // refresh repaints it from the same snapshot that primes the Live Activity.
+    const identity = relayTokenProviderIdentity;
+    const snapshot = yield* readAgentActivitySnapshot();
+    if (!relayTokenProvider || relayTokenProviderIdentity !== identity) {
+      return;
+    }
+    if (snapshot) {
+      widgetShowsCurrentAccount = true;
+      publishWidget({ kind: "snapshot", aggregate: snapshot.aggregate });
+    } else if (!widgetShowsCurrentAccount) {
+      publishWidget({ kind: "unavailable" });
+    }
+
     let activities = yield* Effect.try({
       try: () => getAgentLiveActivities(),
       catch: (cause) =>
@@ -1074,9 +1105,8 @@ export function refreshActiveLiveActivityRemoteRegistration(): Effect.Effect<
           }),
       }).pipe(Effect.orElseSucceed(() => null));
       if (preferences?.liveActivitiesEnabled !== false) {
-        const snapshot = yield* readAgentActivitySnapshot();
-        // The snapshot request yields; an arm-on-send may have created the
-        // card in the meantime. Re-check so two cards are never started.
+        // Loading preferences yields; an arm-on-send may have created the card
+        // in the meantime. Re-check so two cards are never started.
         const armedMeanwhile = yield* Effect.try({
           try: () => getAgentLiveActivities(),
           catch: () => [] as ReadonlyArray<LiveActivity<AgentActivityProps>>,
