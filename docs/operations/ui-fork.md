@@ -1,6 +1,6 @@
 # Blxzzen UI fork
 
-The `blxzzen-ui` branch contains two UI patches: thread details start hidden and open with the existing toggle; floating browser previews start at the top right, drag by their top grip, and resize independently from every edge or corner. Hold Shift while resizing to preserve the current window ratio. Floating browsers cover chat without moving it or the composer. Device previews retain upstream behavior.
+The `blxzzen-ui` branch contains two UI patches: thread details start hidden and open with the existing toggle; floating browser previews start at the top right, drag from their top edge, and resize independently from every edge or corner. Hold Shift while resizing to preserve the current window ratio. Floating browsers cover chat without moving it or the composer. Device previews retain upstream behavior.
 
 `fork-upstream-base` marks the exact source commit of the installed official app. The installer rebuilds only the web UI and preserves the shipped desktop shell, backend, native modules, release connection settings, bundle identifier, and user data. It verifies the archive and local app signature before replacing anything. The installed copy is locally signed rather than signed by T3 Tools. Vendor-bound macOS passkey entitlements cannot be carried into a locally signed fork; browser passkeys that depend on T3 Tools' keychain group remain a limitation of local builds.
 

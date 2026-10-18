@@ -1,7 +1,7 @@
 "use client";
 
 import { FILL_PREVIEW_VIEWPORT, type ScopedThreadRef } from "@t3tools/contracts";
-import { GripHorizontalIcon, PanelRightIcon, PictureInPicture2, XIcon } from "lucide-react";
+import { PanelRightIcon, PictureInPicture2, XIcon } from "lucide-react";
 import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
@@ -486,7 +486,7 @@ function MiniPlayerShell({
             className={cn(
               "group pointer-events-auto absolute z-[49] touch-none cursor-grab active:cursor-grabbing",
               browser
-                ? "inset-x-2 top-1 h-7 rounded-md hover:bg-popover/90"
+                ? "inset-x-2 top-1 h-7"
                 : "size-3 pointer-coarse:-m-2.5 pointer-coarse:size-8",
             )}
             style={browser ? undefined : { right: pillInset, top: pillInset }}
@@ -501,12 +501,6 @@ function MiniPlayerShell({
               setPillOpen((open) => !open);
             }}
           >
-            {browser ? (
-              <GripHorizontalIcon
-                aria-hidden
-                className="pointer-events-none absolute left-1/2 top-1 -translate-x-1/2 size-4 rounded bg-popover/90 text-muted-foreground"
-              />
-            ) : null}
             <div
               role={recording ? "status" : undefined}
               aria-label={recording ? "Recording preview" : undefined}
